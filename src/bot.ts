@@ -1,6 +1,15 @@
 import { Telegraf, Context } from "telegraf";
 import sqlite3 from "sqlite3";
 import schedule from "node-schedule";
+import dotenv from "dotenv";
+
+dotenv.config()
+
+const BOT_TOKEN = process.env.BOT_TOKEN;
+
+if(!BOT_TOKEN){
+  throw new Error("Токен бота не найден. Добавьте его в файл .env");
+}
 
 // Интерфейс пользователя
 interface User {
@@ -41,7 +50,7 @@ db.run(`
 `);
 
 // Инициализация бота
-const bot = new Telegraf("Token"); // Вставьте ваш токен
+const bot = new Telegraf(BOT_TOKEN); // Вставьте ваш токен
 
 // Команда /start
 bot.start((ctx: Context) => {
@@ -173,7 +182,7 @@ bot.command("progress", (ctx: Context) => {
 });
 
 // Планировщик для сброса воды и шагов
-schedule.scheduleJob("25 12 * * *", async () => {
+schedule.scheduleJob("0 0 * * *", async () => {
   console.log("Сохраняем ежедневные показатели и сбрасываем...");
 
   const date = new Date().toISOString().split("T")[0]; // Текущая дата в формате YYYY-MM-DD
