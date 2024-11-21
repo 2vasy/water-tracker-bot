@@ -41,7 +41,7 @@ db.run(`
 `);
 
 // Инициализация бота
-const bot = new Telegraf("7667791922:AAEx7pLXoVtAmTfqFJsc0BvGfd30EJOrgPQ"); // Вставьте ваш токен
+const bot = new Telegraf("Token"); // Вставьте ваш токен
 
 // Команда /start
 bot.start((ctx: Context) => {
