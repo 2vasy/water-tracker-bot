@@ -215,6 +215,48 @@ schedule.scheduleJob("0 0 * * *", async () => {
   });
 });
 
+// Напоминания пить воду
+schedule.scheduleJob("0 * * * *", () => {
+  console.log("Проверяем показатели воды...");
+
+  db.all(`SELECT id, water FROM users`, (err, rows: User[]) => {
+    if (err) {
+      console.error("Ошибка получения данных пользователей:", err.message);
+      return;
+    }
+
+    rows.forEach((user) => {
+      if (user.water < 2500) {
+        bot.telegram.sendMessage(
+          user.id,
+          `Вы выпили ${user.water} мл воды. Пейте больше, чтобы достичь 2500 мл в день!`
+        );
+      }
+    });
+  });
+});
+
+// Напоминания ходить
+schedule.scheduleJob("30 * * * *", () => {
+  console.log("Проверяем показатели шагов...");
+
+  db.all(`SELECT id, steps FROM users`, (err, rows: User[]) => {
+    if (err) {
+      console.error("Ошибка получения данных пользователей:", err.message);
+      return;
+    }
+
+    rows.forEach((user) => {
+      if (user.steps < 10000) {
+        bot.telegram.sendMessage(
+          user.id,
+          `Вы прошли ${user.steps} шагов. Продолжайте ходить, чтобы достичь 10000 шагов в день!`
+        );
+      }
+    });
+  });
+});
+
 // Запуск бота
 async function initializeBot() {
   console.log("Проверка токена...");
