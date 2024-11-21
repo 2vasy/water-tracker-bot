@@ -1,6 +1,6 @@
 import { Telegraf, Context } from "telegraf";
 import sqlite3 from "sqlite3";
-import { Message } from "telegraf/typings/core/types/typegram";
+import schedule from "node-schedule";
 
 // Интерфейс пользователя
 interface User {
@@ -19,13 +19,24 @@ const db = new sqlite3.Database("./data.db", (err) => {
   }
 });
 
-// Создание таблицы
+// Создание таблиц
 db.run(`
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY,
         weight REAL DEFAULT 0,
         steps INTEGER DEFAULT 0,
         water INTEGER DEFAULT 0
+    )
+`);
+
+db.run(`
+    CREATE TABLE IF NOT EXISTS daily_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        date TEXT,
+        water INTEGER,
+        steps INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users (id)
     )
 `);
 
@@ -153,43 +164,72 @@ bot.command("progress", (ctx: Context) => {
     if (!row) return ctx.reply("Сначала введите данные!");
 
     ctx.reply(`
-                Прогресс:
-                - Вес: ${row.weight || "Не указан"} кг
-                - Вода: ${row.water || 0} мл
-                - Шаги: ${row.steps || 0}
-            `);
+        Прогресс:
+        - Вес: ${row.weight || "Не указан"} кг
+        - Вода: ${row.water || 0} мл
+        - Шаги: ${row.steps || 0}
+    `);
   });
 });
 
-// Управление вебхуком и запуск
+// Планировщик для сброса воды и шагов
+schedule.scheduleJob("25 12 * * *", async () => {
+  console.log("Сохраняем ежедневные показатели и сбрасываем...");
+
+  const date = new Date().toISOString().split("T")[0]; // Текущая дата в формате YYYY-MM-DD
+
+  db.all(`SELECT id, water, steps FROM users`, (err, rows: User[]) => {
+    if (err) {
+      return console.error("Ошибка получения данных пользователей:", err.message);
+    }
+
+    rows.forEach((row) => {
+      db.run(
+        `INSERT INTO daily_stats (user_id, date, water, steps) VALUES (?, ?, ?, ?)`,
+        [row.id, date, row.water, row.steps],
+        (err) => {
+          if (err) {
+            console.error("Ошибка сохранения данных:", err.message);
+          }
+        }
+      );
+    });
+
+    // После сохранения сбросить значения
+    db.run(`UPDATE users SET water = 0, steps = 0`, (err) => {
+      if (err) {
+        console.error("Ошибка сброса воды и шагов:", err.message);
+      } else {
+        console.log("Показатели воды и шагов успешно сброшены.");
+      }
+    });
+  });
+});
+
+// Запуск бота
 async function initializeBot() {
   console.log("Проверка токена...");
 
   try {
-    // Проверка подключения
     const botInfo = await bot.telegram.getMe();
     console.log("Бот успешно подключен:", botInfo);
 
-    // Удаление вебхука, если он активен
     const webhookInfo = await bot.telegram.getWebhookInfo();
     if (webhookInfo.url) {
       console.log("Обнаружен активный вебхук:", webhookInfo.url);
-      console.log("Удаляем вебхук...");
       await bot.telegram.deleteWebhook();
       console.log("Вебхук удалён.");
     }
 
-    // Запуск бота
     await bot.launch();
     console.log("Бот запущен!");
-  } catch (error: unknown) {
+  } catch (error) {
     if (error instanceof Error) {
       console.error("Ошибка при инициализации бота:", error.message);
     } else {
-      console.error("Неизвестная ошибка при инициализации бота:", error);
+      console.error("Неизвестная ошибка:", error);
     }
   }
 }
-
 
 initializeBot();
